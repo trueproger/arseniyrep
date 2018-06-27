@@ -11,24 +11,23 @@ using System.Web;
 using Newtonsoft.Json;
 using System.Text.RegularExpressions;
 using System.Globalization;
+using AutoMapper;
 
 namespace ConsoleApp1
 {
     class Program
     {
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
-            Listen();
+            await Listen();
             Console.ReadKey();
         }
 
         private static async Task Listen()
         {
-            HttpListener listener = new HttpListener();
+            var listener = new HttpListener();
 
-            string uri = @"http://10.1.0.69/";
-
-            listener.Prefixes.Add(uri);
+            listener.Prefixes.Add(@"http://10.1.0.69/");
             listener.Start();
 
             Console.WriteLine("Ожидание подключений...");
@@ -39,54 +38,47 @@ namespace ConsoleApp1
                 HttpListenerRequest request = context.Request;
                 HttpListenerResponse responce = context.Response;
                 Stream body = request.InputStream;
-                StreamReader sr = new StreamReader(body, Encoding.UTF8);
-                try
-                {
-                    responce.StatusCode = 200;
-                    
-                    string str = sr.ReadToEnd();
-                    File.WriteAllText(@"E:\text2.txt", str, Encoding.UTF8);//для просмотра приходящиго Json
+                using (var sr = new StreamReader(body, Encoding.UTF8))
+                    try
+                    {
 
-                    // BasicHttpBinding_IEmergencyCard UPDCase = new BasicHttpBinding_IEmergencyCard();
-                    //  UPDCase.UpdateCase(myPars(str));
-                    Console.WriteLine("ok");
-                }
-                catch (Exception ex) { Console.WriteLine(ex.Message); }
-                finally
-                {
-                    responce.Close();
-                    body.Close();
-                    sr.Close();
-                }
+                        responce.StatusCode = Convert.ToInt32(HttpStatusCode.OK);
+                        string str = await sr.ReadToEndAsync();
+                        myObject obj = JsonConvert.DeserializeObject<myObject>(str);
+
+                         BasicHttpBinding_IEmergencyCard UPDCase = new BasicHttpBinding_IEmergencyCard();
+                         UPDCase.UpdateCase(Map(obj));
+
+                    }
+                    catch (Exception ex) { Console.WriteLine(ex.Message); }
+                    finally
+                    {
+                        responce.Close();
+                        body.Close();
+                        sr.Close();
+
+                        Console.WriteLine("Сигнал обработан");
+                    }
             }
 
-            // останавливаем прослушивание подключений
-            
-            listener.Stop();
-            Console.WriteLine("Обработка подключений завершена");
-            Console.ReadKey();
         }
 
-        public static EmergencyCaseInfo myPars(string str) {
+        public static EmergencyCaseInfo Map(myObject pars) {
 
-            EmergencyCaseInfo res =new EmergencyCaseInfo();
+            var res = new EmergencyCaseInfo();
 
-            dynamic pars = JsonConvert.DeserializeObject(str);
-
-           
-
-            res.externalCardId = pars.Card.Id; //Id в системе ISS
-            res.caller.firstName = pars.Ier.FullName.LastName; // фамилия
-            res.caller.lastName = pars.Ier.FullName.FirstName; // имя
-            res.caller.midleName = pars.Ier.FullName.MiddleName;//отчество
-            res.caller.phoneNumber = pars.Ier.CgPn;// номер
-            res.info = pars.Card.CommonData.TypeStr + " " + pars.Card.CommonData.IsDanger + " " + pars.Card.CommonData.Description; //информация о происшествии
-            res.location.entrance = pars.Card.Location.Address.Porch;//подьезд
-            res.location.highway.km = pars.Card.Location.Address.DistanceInKm; //километр трассы
-            res.location.highway.name = pars.Card.Location.Address.Road;//название трассы
-            res.location.house = pars.Card.Location.Address.HouseNumber; // номер дома 
-            string buf = pars.Card.Location.Coordinates;// координаты
-            string buff= buf.Replace('.',',');
+            res.externalCardId = pars.card.id; //Id в системе ISS
+            res.caller.firstName = pars.ier.fullName.lastName; // фамилия
+            res.caller.lastName = pars.ier.fullName.firstName; // имя
+            res.caller.midleName = pars.ier.fullName.middleName;//отчество
+            res.caller.phoneNumber = pars.ier.cgPn;// номер
+            res.info = pars.card.commonData.typeStr + " " + pars.card.commonData.isDanger + " " + pars.card.commonData.description+" "+ pars.card.commonData.timeIsoStr; //информация о происшествии
+            res.location.entrance = pars.card.location.address.porch;//подьезд
+            res.location.highway.km = pars.card.location.address.distanceInKm; //километр трассы
+            res.location.highway.name = pars.card.location.address.road;//название трассы
+            res.location.house = pars.card.location.address.houseNumber; // номер дома 
+            string buf = pars.card.location.coordinates;// координаты
+            string buff = buf.Replace('.', ',');
             string[] split = buff.Split(' ');
             double x = double.Parse(split[0]);
             long xx = Convert.ToInt64(x * 3600000);
@@ -94,35 +86,127 @@ namespace ConsoleApp1
             x = double.Parse(split[1]);
             xx = Convert.ToInt64(x * 3600000);
             res.location.longitude = xx;//долгота
-            res.location.locality = pars.Card.Location.Address.City;//город
-            res.location.municipality = pars.Card.Location.Address.District;//район
-            res.location.street = pars.Card.Location.Address.StreetShort + " " + pars.Card.Location.Address.Street;//улица 
-            return res;
+            res.location.locality = pars.card.location.address.city;//город
+            res.location.municipality = pars.card.location.address.district;//район
+            res.location.street = pars.card.location.address.streetShort + " " + pars.card.location.address.street;//улица 
 
+
+            return res;
         }
 
     }
-    /*
-    public class myClass {
-       
 
+    public class myObject {
+        private Card Card;
+        private Ier Ier;
+        private Video Video;
+
+        public Card card { get => Card; set => Card = value; }
+        public Ier ier { get => Ier; set => Ier = value; }
+        public Video video { get => Video; set => Video = value; }
+
+        public myObject() {
+            this.Card = new Card();
+            this.Ier = new Ier();
+            this.Video = new Video();
+        }
     }
 
-    public class Card { }
+    public class Card {
+        private CommonData CommonData;
+        private string Id;
+        private Location Location;
 
-    public class Ier { }
+        public CommonData commonData { get => CommonData; set => CommonData = value; }
+        public string id { get => Id; set => Id = value; }
+        public Location location { get => Location; set => Location = value; }
 
-    public class Video { }
+        public Card() {
+            this.CommonData = new CommonData();
+            this.Location = new Location();
+        }
+    }
 
-    public class Location { }
+    public class CommonData {
+        private string Description;
+        private string IsDanger;
+        private string TimeIsoStr;
+        private string TypeStr;
 
-    public class CommonData { }
+        public string description { get => Description; set => Description = value; }
+        public string isDanger { get => IsDanger; set => IsDanger = value; }
+        public string timeIsoStr { get => TimeIsoStr; set => TimeIsoStr = value; }
+        public string typeStr { get => TypeStr; set => TypeStr = value; }
 
-    public class FullName { }
+        public CommonData() { }
+    }
 
-    public class Address { }
-    */
-    
+    public class Location {
+        private Address Address;
+        private string Coordinates;
+
+        public Address address { get => Address; set => Address = value; }
+        public string coordinates { get => Coordinates; set => Coordinates = value; }
+
+        public Location() {
+            this.Address = new Address();
+        }
+    }
+
+    public class Address {
+        public string City;
+        public int DistanceInKm;
+        public string District;
+        public string HouseNumber;
+        public string Porch;
+        public string Road;
+        public string Street;
+        public string StreetShort;
+
+        public string city { get => City; set => City = value; }
+        public int distanceInKm { get => DistanceInKm; set => DistanceInKm = value; }
+        public string district { get => District; set => District = value; }
+        public string houseNumber { get => HouseNumber; set => HouseNumber = value; }
+        public string porch { get => Porch; set => Porch = value; }
+        public string road { get => Road; set => Road = value; }
+        public string street { get => Street; set => Street = value; }
+        public string streetShort { get => StreetShort; set => StreetShort = value; }
+
+        public Address() { }
+    }
+
+    public class Ier {
+        private string CgPn;
+        private FullName FullName;
+
+        public string cgPn { get => CgPn; set => CgPn = value; }
+        public FullName fullName { get => FullName; set => FullName = value; }
+
+        public Ier() {
+         this.FullName = new FullName();
+        }
+    }
+
+    public class FullName {
+        private string FirstName;
+        private string LastName;
+        private string MiddleName;
+
+        public FullName() { }
+
+        public string firstName { get => FirstName; set => FirstName = value; }
+        public string lastName { get => LastName; set => LastName = value; }
+        public string middleName { get => MiddleName; set => MiddleName = value; }
+    }
+
+    public class Video {
+       public string RTSPArchive;
+       public string RTSPLive;
+
+        public Video(){}
+
+        public string RTSPArchive1 { get => RTSPArchive; set => RTSPArchive = value; }
+        public string RTSPLive1 { get => RTSPLive; set => RTSPLive = value; }
+    }
 
 }
-

@@ -31,9 +31,7 @@ public partial class BasicHttpBinding_IEmergencyCard : System.Web.Services.Proto
     
     /// <remarks/>
     public BasicHttpBinding_IEmergencyCard() {
-        this.Url = @"http://10.1.1.101/Sphaera.Integration/EmergencyCardService.svc";
-       // this.Url = @"http://10.1.1.101/";
-
+        this.Url = @"http://[port]/Sphaera.Integration/EmergencyCardService.svc";
     }
     
     /// <remarks/>
